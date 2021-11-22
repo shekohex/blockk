@@ -1,3 +1,19 @@
+#![deny(
+    unsafe_code,
+    unused_import_braces,
+    unused_qualifications,
+    trivial_casts,
+    trivial_numeric_casts,
+    unstable_features,
+    unused_import_braces,
+    unused_results,
+    warnings,
+    missing_copy_implementations,
+    missing_debug_implementations,
+    trivial_casts,
+    trivial_numeric_casts,
+    unused_extern_crates
+)]
 use std::net::{SocketAddr, ToSocketAddrs};
 
 use tokio::io::AsyncWriteExt;
@@ -34,7 +50,7 @@ async fn main() -> anyhow::Result<()> {
     loop {
         let (stream, peer_addr) = listener.accept().await?;
         tracing::info!("Connection from: {}", peer_addr);
-        tokio::spawn(async move {
+        let _ = tokio::spawn(async move {
             match handle_connection(stream).await {
                 Err(e) => {
                     tracing::error!("Error: {:?}", e);
@@ -79,7 +95,7 @@ enum ConnectResult {
 
 async fn handle_connection(mut tcp_stream: TcpStream) -> anyhow::Result<ConnectionResult> {
     let client_addr = tcp_stream.peer_addr()?;
-    let req = request_handler::get_request(&mut tcp_stream).await?;
+    let req = get_request(&mut tcp_stream).await?;
     match req.method.name.as_str() {
         "CONNECT" => {
             let r = handle_connect_request(tcp_stream, client_addr, req.method.uri).await?;
@@ -125,13 +141,13 @@ async fn process_connect_request(
     let client_name = format!("{}", client_addr);
     let dest_name = format!("{}", dest_addr);
     let dest = TcpStream::connect(dest_addr).await?;
-    request_handler::send_response(&mut client, ServerResponse::Ok).await?;
+    send_response(&mut client, ServerResponse::Ok).await?;
     let mut tunnel = Tunnel::new(client_name, client, dest_name, dest);
     Ok(tunnel.start().await?)
 }
 
 async fn end_invalid_request(mut client: TcpStream, res: ServerResponse) -> anyhow::Result<()> {
-    request_handler::send_response(&mut client, res).await?;
+    send_response(&mut client, res).await?;
     client.shutdown().await?;
     Ok(())
 }
